@@ -28,15 +28,15 @@ fun StatsDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.8f)
-                .padding(16.dp),
+                .fillMaxWidth(0.95f) // Increased from default to make wider
+                .fillMaxHeight(0.85f) // Increased from 0.8f
+                .padding(8.dp), // Reduced padding to use more screen space
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
+                    .padding(20.dp) // Increased from 16.dp
             ) {
                 // Header
                 Row(
@@ -46,7 +46,7 @@ fun StatsDialog(
                 ) {
                     Text(
                         text = "Game Statistics",
-                        fontSize = 20.sp,
+                        fontSize = 24.sp, // Increased from 20.sp
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onDismiss) {
@@ -54,11 +54,11 @@ fun StatsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp)) // Increased from 16.dp
 
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(20.dp) // Increased from 16.dp
                 ) {
                     item {
                         // Overall Stats
@@ -66,13 +66,13 @@ fun StatsDialog(
                             modifier = Modifier.fillMaxWidth(),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(20.dp)) { // Increased from 16.dp
                                 Text(
                                     text = "Overall Statistics",
                                     fontWeight = FontWeight.Medium,
-                                    fontSize = 16.sp
+                                    fontSize = 18.sp // Increased from 16.sp
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(12.dp)) // Increased from 8.dp
 
                                 StatRow("Total Rounds", gameState.getTotalRounds().toString())
                                 StatRow("Average Turn Time", formatTime(gameState.getOverallAverageTime().toInt()))
@@ -87,13 +87,13 @@ fun StatsDialog(
                             modifier = Modifier.fillMaxWidth(),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(20.dp)) { // Increased from 16.dp
                                 Text(
                                     text = "Player Statistics",
                                     fontWeight = FontWeight.Medium,
-                                    fontSize = 16.sp
+                                    fontSize = 18.sp // Increased from 16.sp
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(12.dp)) // Increased from 8.dp
 
                                 repeat(gameConfiguration.numberOfPlayers) { playerIndex ->
                                     PlayerStatCard(
@@ -103,7 +103,7 @@ fun StatsDialog(
                                             gameState.playerTurnTimes[playerIndex].size else 0
                                     )
                                     if (playerIndex < gameConfiguration.numberOfPlayers - 1) {
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Spacer(modifier = Modifier.height(12.dp)) // Increased from 8.dp
                                     }
                                 }
                             }
@@ -111,18 +111,18 @@ fun StatsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp)) // Increased from 16.dp
 
                 // Action Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp) // Increased from 8.dp
                 ) {
                     OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Close")
+                        Text("Close", fontSize = 16.sp) // Added larger font size
                     }
 
                     Button(
@@ -132,7 +132,7 @@ fun StatsDialog(
                         },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("New Game")
+                        Text("New Game", fontSize = 16.sp) // Added larger font size
                     }
                 }
             }
@@ -151,11 +151,11 @@ private fun StatRow(
     ) {
         Text(
             text = label,
-            fontSize = 14.sp
+            fontSize = 16.sp // Increased from 14.sp
         )
         Text(
             text = value,
-            fontSize = 14.sp,
+            fontSize = 16.sp, // Increased from 14.sp
             fontWeight = FontWeight.Medium
         )
     }
@@ -174,14 +174,14 @@ private fun PlayerStatCard(
         )
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(16.dp) // Increased from 12.dp
         ) {
             Text(
                 text = playerName,
                 fontWeight = FontWeight.Medium,
-                fontSize = 14.sp
+                fontSize = 16.sp // Increased from 14.sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp)) // Increased from 4.dp
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -189,12 +189,12 @@ private fun PlayerStatCard(
             ) {
                 Text(
                     text = "Avg: ${formatTime(averageTime.toInt())}",
-                    fontSize = 12.sp,
+                    fontSize = 14.sp, // Increased from 12.sp
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "Turns: $totalTurns",
-                    fontSize = 12.sp,
+                    fontSize = 14.sp, // Increased from 12.sp
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

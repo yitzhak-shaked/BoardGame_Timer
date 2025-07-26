@@ -77,6 +77,39 @@ class GameTimerViewModel : ViewModel() {
         // Initialize SharedPreferences for saving configurations
         sharedPreferences = context.getSharedPreferences("BoardGameTimer", Context.MODE_PRIVATE)
         loadSavedConfigurations()
+        loadLastUsedConfiguration()
+    }
+
+    private fun loadLastUsedConfiguration() {
+        sharedPreferences?.let { prefs ->
+            val json = prefs.getString("last_used_configuration", null)
+            if (json != null) {
+                try {
+                    val lastConfig = gson.fromJson(json, GameConfiguration::class.java)
+                    gameConfiguration = lastConfig
+                    // Update game state with the loaded configuration
+                    if (!gameState.isGameRunning) {
+                        val playerTurnTimes = List(lastConfig.numberOfPlayers) { mutableListOf<Int>() }
+                        gameState = GameState(
+                            timeRemainingSeconds = lastConfig.turnDurationSeconds,
+                            timeRemainingMillis = lastConfig.turnDurationSeconds * 1000L,
+                            playerTurnTimes = playerTurnTimes,
+                            isPaused = false,
+                            isGameRunning = false
+                        )
+                    }
+                } catch (e: Exception) {
+                    // If loading fails, keep the default configuration
+                }
+            }
+        }
+    }
+
+    private fun saveCurrentConfigurationAsDefault() {
+        sharedPreferences?.let { prefs ->
+            val json = gson.toJson(gameConfiguration)
+            prefs.edit().putString("last_used_configuration", json).apply()
+        }
     }
 
     fun startNewGame() {
@@ -312,6 +345,8 @@ class GameTimerViewModel : ViewModel() {
 
     fun updateConfiguration(newConfig: GameConfiguration) {
         gameConfiguration = newConfig
+        // Automatically save this configuration as the default for future app startups
+        saveCurrentConfigurationAsDefault()
         // Reset game state with new configuration only if game is not running
         if (!gameState.isGameRunning) {
             val playerTurnTimes = List(newConfig.numberOfPlayers) { mutableListOf<Int>() }
@@ -341,6 +376,8 @@ class GameTimerViewModel : ViewModel() {
 
     fun loadConfiguration(savedConfig: SavedConfiguration) {
         gameConfiguration = savedConfig.configuration
+        // Automatically save this loaded configuration as the default for future app startups
+        saveCurrentConfigurationAsDefault()
         // Reset game state with new configuration only if game is not running
         if (!gameState.isGameRunning) {
             val playerTurnTimes = List(gameConfiguration.numberOfPlayers) { mutableListOf<Int>() }
