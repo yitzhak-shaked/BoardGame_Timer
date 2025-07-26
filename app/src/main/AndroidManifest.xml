@@ -25,6 +25,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".OptionsActivity"
+            android:exported="false"
+            android:label="Game Options"
+            android:theme="@style/Theme.BoardGameTimer" />
     </application>
 
 </manifest>

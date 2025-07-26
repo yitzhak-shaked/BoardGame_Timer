@@ -1,10 +1,12 @@
 package com.example.boardgametimer
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -14,14 +16,34 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.boardgametimer.model.GameConfiguration
 import com.example.boardgametimer.ui.components.GameTimerScreen
-import com.example.boardgametimer.ui.components.OptionsDialog
 import com.example.boardgametimer.ui.components.StatsDialog
 import com.example.boardgametimer.ui.components.TimeExpiredDialog
 import com.example.boardgametimer.ui.theme.BoardGameTimerTheme
 import com.example.boardgametimer.viewmodel.GameTimerViewModel
+import com.google.gson.Gson
 
 class MainActivity : ComponentActivity() {
+    private val gson = Gson()
+    lateinit var viewModel: GameTimerViewModel
+
+    // Register activity launcher for options
+    private val optionsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.getStringExtra("gameConfiguration")?.let { configJson ->
+                try {
+                    val newConfig = gson.fromJson(configJson, GameConfiguration::class.java)
+                    viewModel.updateConfiguration(newConfig)
+                } catch (e: Exception) {
+                    // Handle JSON parsing error gracefully
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -35,7 +57,14 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    BoardGameTimerApp()
+                    BoardGameTimerApp(
+                        onShowOptions = { config ->
+                            val intent = Intent(this@MainActivity, OptionsActivity::class.java).apply {
+                                putExtra("gameConfiguration", gson.toJson(config))
+                            }
+                            optionsLauncher.launch(intent)
+                        }
+                    )
                 }
             }
         }
@@ -43,9 +72,16 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun BoardGameTimerApp() {
+fun BoardGameTimerApp(onShowOptions: (GameConfiguration) -> Unit) {
     val viewModel: GameTimerViewModel = viewModel()
     val context = LocalContext.current
+
+    // Store viewModel reference in MainActivity
+    LaunchedEffect(viewModel) {
+        if (context is MainActivity) {
+            context.viewModel = viewModel
+        }
+    }
 
     // Initialize audio when the app starts
     LaunchedEffect(Unit) {
@@ -58,7 +94,7 @@ fun BoardGameTimerApp() {
             gameConfiguration = viewModel.gameConfiguration,
             onNextPlayer = viewModel::nextPlayer,
             onPauseResume = viewModel::pauseResumeGame,
-            onShowOptions = viewModel::showOptions,
+            onShowOptions = { onShowOptions(viewModel.gameConfiguration) },
             onEndGame = {
                 if (viewModel.gameState.isGameRunning) {
                     viewModel.endGame()
@@ -70,22 +106,6 @@ fun BoardGameTimerApp() {
             modifier = Modifier.padding(innerPadding)
         )
 
-        // Options Dialog
-        if (viewModel.showOptions) {
-            OptionsDialog(
-                gameConfiguration = viewModel.gameConfiguration,
-                savedConfigurations = viewModel.savedConfigurations,
-                onConfigurationChanged = viewModel::updateConfiguration,
-                onSaveConfiguration = { name, config ->
-                    // Update the game configuration first, then save it
-                    viewModel.updateConfiguration(config)
-                    viewModel.saveConfiguration(name)
-                },
-                onLoadConfiguration = viewModel::loadConfiguration,
-                onDeleteConfiguration = viewModel::deleteConfiguration,
-                onDismiss = viewModel::hideOptions
-            )
-        }
 
         // Stats Dialog
         if (viewModel.showStats) {
