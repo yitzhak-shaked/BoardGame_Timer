@@ -407,10 +407,14 @@ class GameTimerViewModel : ViewModel() {
         // Prevent throwing dice if already thrown in this phase
         if (gameState.dicePhaseState != DicePhaseState.WAITING_TO_THROW) return
 
-        // Start dice animation
+        // Stop the countdown timer immediately when dice are thrown
+        timerJob?.cancel()
+
+        // Start dice animation and pause the game
         gameState = gameState.copy(
             isDiceAnimating = true,
-            dicePhaseState = DicePhaseState.THROWING
+            dicePhaseState = DicePhaseState.THROWING,
+            isPaused = true // Pause the game to stop the countdown
         )
 
         // Simulate dice animation with out-of-sync changes for multiple dice

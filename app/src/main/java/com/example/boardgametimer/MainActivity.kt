@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
                     viewModel.updateConfiguration(newConfig)
                 } catch (e: Exception) {
                     // Handle JSON parsing error gracefully
+                    android.util.Log.e("MainActivity", "Failed to parse game configuration", e)
                 }
             }
         }
