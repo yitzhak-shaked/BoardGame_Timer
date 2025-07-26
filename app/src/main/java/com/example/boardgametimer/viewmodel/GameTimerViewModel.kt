@@ -16,6 +16,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.boardgametimer.model.GameConfiguration
 import com.example.boardgametimer.model.GameState
 import com.example.boardgametimer.model.SavedConfiguration
+import com.example.boardgametimer.model.DicePhaseState
+import com.example.boardgametimer.model.PhaseType
+import com.example.boardgametimer.model.TurnPhase
+import com.example.boardgametimer.model.DiceResult
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -118,17 +122,24 @@ class GameTimerViewModel : ViewModel() {
 
         val nextPhaseIndex = gameState.currentPhaseIndex + 1
         val phaseDuration = gameConfiguration.getCurrentPhaseDuration(nextPhaseIndex)
+        val nextPhase = gameConfiguration.turnPhases[nextPhaseIndex]
 
         gameState = gameState.copy(
             currentPhaseIndex = nextPhaseIndex,
             timeRemainingSeconds = phaseDuration,
             timeRemainingMillis = phaseDuration * 1000L,
             turnStartTime = System.currentTimeMillis(),
-            isPaused = false
+            isPaused = false,
+            // Reset dice state for new phase
+            dicePhaseState = DicePhaseState.WAITING_TO_THROW,
+            diceResult = null,
+            isDiceAnimating = false
         )
 
-        // Auto-start timer for next phase
-        startTimer()
+        // Auto-start timer for next phase (unless it's a dice phase waiting for throw)
+        if (nextPhase.phaseType != PhaseType.DICE_THROW || !shouldWaitForDiceThrow()) {
+            startTimer()
+        }
     }
 
     private fun moveToNextPlayer() {
@@ -149,6 +160,7 @@ class GameTimerViewModel : ViewModel() {
         val nextPlayerIndex = (gameState.currentPlayerIndex + 1) % gameConfiguration.numberOfPlayers
         val newRoundCount = if (nextPlayerIndex == 0) gameState.roundCount + 1 else gameState.roundCount
         val firstPhaseDuration = gameConfiguration.getCurrentPhaseDuration(0)
+        val firstPhase = gameConfiguration.turnPhases[0]
 
         gameState = gameState.copy(
             currentPlayerIndex = nextPlayerIndex,
@@ -158,11 +170,17 @@ class GameTimerViewModel : ViewModel() {
             playerTurnTimes = updatedPlayerTurnTimes,
             roundCount = newRoundCount,
             turnStartTime = System.currentTimeMillis(),
-            isPaused = false
+            isPaused = false,
+            // Reset dice state for new player
+            dicePhaseState = DicePhaseState.WAITING_TO_THROW,
+            diceResult = null,
+            isDiceAnimating = false
         )
 
-        // Auto-start timer for next player
-        startTimer()
+        // Auto-start timer for next player (unless first phase is a dice phase waiting for throw)
+        if (firstPhase.phaseType != PhaseType.DICE_THROW || !shouldWaitForDiceThrow()) {
+            startTimer()
+        }
     }
 
     fun undoLastAction() {
@@ -377,5 +395,121 @@ class GameTimerViewModel : ViewModel() {
         timerJob?.cancel()
         toneGenerator?.release()
         textToSpeech?.shutdown()
+    }
+
+    fun throwDice() {
+        val currentPhase = gameConfiguration.turnPhases[gameState.currentPhaseIndex]
+        if (currentPhase.phaseType != PhaseType.DICE_THROW) return
+
+        // Prevent throwing dice if game is not running
+        if (!gameState.isGameRunning) return
+
+        // Prevent throwing dice if already thrown in this phase
+        if (gameState.dicePhaseState != DicePhaseState.WAITING_TO_THROW) return
+
+        // Start dice animation
+        gameState = gameState.copy(
+            isDiceAnimating = true,
+            dicePhaseState = DicePhaseState.THROWING
+        )
+
+        // Simulate dice animation with out-of-sync changes for multiple dice
+        viewModelScope.launch {
+            val animationDuration = 3000L // Fixed at 3 seconds
+            val startTime = System.currentTimeMillis()
+
+            // Initialize with random values immediately to replace "Tap to throw"
+            var previousValues = (1..currentPhase.diceCount).map { (1..currentPhase.diceType.sides).random() }
+            val lastChangeTime = mutableListOf<Long>()
+            repeat(currentPhase.diceCount) { lastChangeTime.add(0L) }
+
+            // Set initial values immediately
+            gameState = gameState.copy(
+                diceResult = DiceResult(previousValues, previousValues.sum())
+            )
+
+            while (System.currentTimeMillis() - startTime < animationDuration) {
+                val currentTime = System.currentTimeMillis() - startTime
+                val progress = currentTime.toFloat() / animationDuration.toFloat()
+
+                // Create deceleration curve - starts fast, gets slower
+                val decelerationFactor = 1.0f - (progress * progress) // Quadratic deceleration
+                val adjustedBaseInterval = (120L + (300L * progress)).toLong() // 120ms to 420ms (more controlled)
+
+                // Check each die individually and update immediately when it's time to change
+                for (index in 0 until currentPhase.diceCount) {
+                    val dieInterval = (adjustedBaseInterval + (index * 80L * decelerationFactor)).toLong()
+
+                    // Check if enough time has passed since this die's last change
+                    if (currentTime - lastChangeTime[index] >= dieInterval) {
+                        // Time to change this die's value - update immediately
+                        lastChangeTime[index] = currentTime
+                        val newValue = (1..currentPhase.diceType.sides).random()
+
+                        // Update only this die's value immediately for perfect sync
+                        val updatedValues = previousValues.toMutableList()
+                        updatedValues[index] = newValue
+                        previousValues = updatedValues
+
+                        // Update state immediately when value changes
+                        gameState = gameState.copy(
+                            diceResult = DiceResult(previousValues, previousValues.sum())
+                        )
+                    }
+                }
+
+                // Fixed frame rate
+                delay(50L)
+            }
+
+            // Generate final result
+            val finalValues = (1..currentPhase.diceCount).map {
+                (1..currentPhase.diceType.sides).random()
+            }
+            gameState = gameState.copy(
+                isDiceAnimating = false,
+                diceResult = DiceResult(finalValues, finalValues.sum()),
+                dicePhaseState = DicePhaseState.SHOWING_RESULT
+            )
+
+            // Play dice sound effect
+            playDiceSound()
+
+            // Handle timer based on phase configuration
+            if (currentPhase.waitForPress) {
+                // If wait for press is enabled, just pause and wait for manual progression
+                gameState = gameState.copy(isPaused = true)
+            } else if (currentPhase.durationSeconds > 0) {
+                // Start the timer with the configured duration
+                gameState = gameState.copy(
+                    timeRemainingSeconds = currentPhase.durationSeconds,
+                    timeRemainingMillis = currentPhase.durationSeconds * 1000L,
+                    isPaused = false
+                )
+                startTimer()
+            } else {
+                // Duration is 0, automatically proceed to next phase/player
+                delay(1000) // Show result for 1 second
+                nextPlayer()
+            }
+        }
+    }
+
+    private fun playDiceSound() {
+        toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 200)
+    }
+
+    fun getCurrentPhase(): TurnPhase {
+        return gameConfiguration.turnPhases[gameState.currentPhaseIndex]
+    }
+
+    fun isDicePhase(): Boolean {
+        return getCurrentPhase().phaseType == PhaseType.DICE_THROW
+    }
+
+    fun shouldWaitForDiceThrow(): Boolean {
+        val currentPhase = getCurrentPhase()
+        return currentPhase.phaseType == PhaseType.DICE_THROW &&
+               gameState.dicePhaseState == DicePhaseState.WAITING_TO_THROW
     }
 }

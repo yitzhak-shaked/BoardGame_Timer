@@ -1,8 +1,27 @@
 package com.example.boardgametimer.model
 
+enum class PhaseType {
+    NORMAL,
+    DICE_THROW
+}
+
+enum class DiceType(val sides: Int, val displayName: String) {
+    D2(2, "d2"),
+    D4(4, "d4"),
+    D6(6, "d6"),
+    D8(8, "d8"),
+    D10(10, "d10"),
+    D20(20, "d20"),
+    D100(100, "d100")
+}
+
 data class TurnPhase(
     val name: String,
-    val durationSeconds: Int
+    val durationSeconds: Int,
+    val phaseType: PhaseType = PhaseType.NORMAL,
+    val diceCount: Int = 1,
+    val diceType: DiceType = DiceType.D6,
+    val waitForPress: Boolean = false
 )
 
 data class GameConfiguration(

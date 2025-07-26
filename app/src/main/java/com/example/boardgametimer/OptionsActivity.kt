@@ -8,6 +8,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -22,11 +24,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.boardgametimer.model.GameConfiguration
 import com.example.boardgametimer.model.SavedConfiguration
 import com.example.boardgametimer.model.TurnPhase
+import com.example.boardgametimer.model.PhaseType
+import com.example.boardgametimer.model.DiceType
 import com.example.boardgametimer.ui.theme.BoardGameTimerTheme
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -458,6 +463,8 @@ private fun RoundConfigurationCard(
                         phase = phase,
                         phaseIndex = index,
                         canDelete = turnPhases.size > 1,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < turnPhases.size - 1,
                         onPhaseChange = { newPhase ->
                             val newPhases = turnPhases.toMutableList()
                             newPhases[index] = newPhase
@@ -467,6 +474,24 @@ private fun RoundConfigurationCard(
                             val newPhases = turnPhases.toMutableList()
                             newPhases.removeAt(index)
                             onPhasesChange(newPhases)
+                        },
+                        onMovePhaseUp = {
+                            if (index > 0) {
+                                val newPhases = turnPhases.toMutableList()
+                                val temp = newPhases[index]
+                                newPhases[index] = newPhases[index - 1]
+                                newPhases[index - 1] = temp
+                                onPhasesChange(newPhases)
+                            }
+                        },
+                        onMovePhaseDown = {
+                            if (index < turnPhases.size - 1) {
+                                val newPhases = turnPhases.toMutableList()
+                                val temp = newPhases[index]
+                                newPhases[index] = newPhases[index + 1]
+                                newPhases[index + 1] = temp
+                                onPhasesChange(newPhases)
+                            }
                         }
                     )
                 }
@@ -480,14 +505,19 @@ private fun PhaseConfigCard(
     phase: TurnPhase,
     phaseIndex: Int,
     canDelete: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     onPhaseChange: (TurnPhase) -> Unit,
-    onDeletePhase: () -> Unit
+    onDeletePhase: () -> Unit,
+    onMovePhaseUp: () -> Unit,
+    onMovePhaseDown: () -> Unit
 ) {
     // Memoize expensive computations
-    val timeOptions = remember { listOf(30, 60, 90, 120, 180, 300, 600) }
-    val timeLabels = remember { listOf("30s", "1m", "1.5m", "2m", "3m", "5m", "10m") }
+    val timeOptions = remember { listOf(0, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300, 450, 600, 900, 1200) }
+    val timeLabels = remember { listOf("Wait", "10s", "15s", "30s", "45s", "1m", "1.5m", "2m", "3m", "4m", "5m", "7.5m", "10m", "15m", "20m") }
     val formattedTime = remember(phase.durationSeconds) {
-        "${phase.durationSeconds / 60}:${String.format(Locale.getDefault(), "%02d", phase.durationSeconds % 60)}"
+        if (phase.durationSeconds == 0) "Wait for press"
+        else "${phase.durationSeconds / 60}:${String.format(Locale.getDefault(), "%02d", phase.durationSeconds % 60)}"
     }
 
     // Memoize callbacks
@@ -499,8 +529,9 @@ private fun PhaseConfigCard(
 
     val onDurationDecrease = remember {
         {
-            if (phase.durationSeconds > 10) {
-                onPhaseChange(phase.copy(durationSeconds = phase.durationSeconds - 10))
+            if (phase.durationSeconds > 0) {
+                val newDuration = if (phase.durationSeconds <= 10) 0 else phase.durationSeconds - 10
+                onPhaseChange(phase.copy(durationSeconds = newDuration))
             }
         }
     }
@@ -508,7 +539,8 @@ private fun PhaseConfigCard(
     val onDurationIncrease = remember {
         {
             if (phase.durationSeconds < 600) {
-                onPhaseChange(phase.copy(durationSeconds = phase.durationSeconds + 10))
+                val newDuration = if (phase.durationSeconds == 0) 10 else phase.durationSeconds + 10
+                onPhaseChange(phase.copy(durationSeconds = newDuration))
             }
         }
     }
@@ -527,11 +559,41 @@ private fun PhaseConfigCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Phase ${phaseIndex + 1}",
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 16.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Phase ${phaseIndex + 1}",
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 16.sp
+                    )
+
+                    // Phase reordering buttons
+                    Row {
+                        IconButton(
+                            onClick = onMovePhaseUp,
+                            enabled = canMoveUp
+                        ) {
+                            Icon(
+                                Icons.Default.KeyboardArrowUp,
+                                contentDescription = "Move phase up",
+                                tint = if (canMoveUp) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onMovePhaseDown,
+                            enabled = canMoveDown
+                        ) {
+                            Icon(
+                                Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Move phase down",
+                                tint = if (canMoveDown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            )
+                        }
+                    }
+                }
 
                 if (canDelete) {
                     IconButton(onClick = onDeletePhase) {
@@ -550,6 +612,119 @@ private fun PhaseConfigCard(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Phase Type Selection
+            Text(
+                text = "Phase Type:",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    onClick = { onPhaseChange(phase.copy(phaseType = PhaseType.NORMAL)) },
+                    label = { Text("Normal") },
+                    selected = phase.phaseType == PhaseType.NORMAL,
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    onClick = { onPhaseChange(phase.copy(phaseType = PhaseType.DICE_THROW)) },
+                    label = { Text("Dice Throw") },
+                    selected = phase.phaseType == PhaseType.DICE_THROW,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Dice Configuration (only show for dice throw phases)
+            if (phase.phaseType == PhaseType.DICE_THROW) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Dice Configuration:",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Dice Count
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Number of Dice:")
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {
+                                if (phase.diceCount > 1) {
+                                    onPhaseChange(phase.copy(diceCount = phase.diceCount - 1))
+                                }
+                            },
+                            enabled = phase.diceCount > 1
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease dice count")
+                        }
+
+                        Text(
+                            text = "${phase.diceCount}",
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.widthIn(min = 40.dp),
+                            textAlign = TextAlign.Center
+                        )
+
+                        IconButton(
+                            onClick = {
+                                if (phase.diceCount < 10) {
+                                    onPhaseChange(phase.copy(diceCount = phase.diceCount + 1))
+                                }
+                            },
+                            enabled = phase.diceCount < 10
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Increase dice count")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Dice Type Selection
+                Text(text = "Dice Type:")
+                Spacer(modifier = Modifier.height(4.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(DiceType.values()) { diceType ->
+                        FilterChip(
+                            onClick = { onPhaseChange(phase.copy(diceType = diceType)) },
+                            label = { Text(diceType.displayName) },
+                            selected = phase.diceType == diceType
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Wait for Press Option
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Wait for press to throw dice:")
+                    Switch(
+                        checked = phase.waitForPress,
+                        onCheckedChange = { onPhaseChange(phase.copy(waitForPress = it)) }
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -596,7 +771,8 @@ private fun PhaseConfigCard(
                         text = formattedTime,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        modifier = Modifier.widthIn(min = 80.dp)
+                        modifier = Modifier.widthIn(min = 80.dp),
+                        textAlign = TextAlign.Center
                     )
 
                     IconButton(onClick = onDurationIncrease) {
@@ -615,17 +791,17 @@ private fun QuickSelectChips(
     currentDuration: Int,
     onDurationSelect: (Int) -> Unit
 ) {
-    // Use FlowRow instead of LazyRow for better performance with small lists
-    Row(
+    // Use horizontally scrollable LazyRow for better UX with many options
+    LazyRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp)
     ) {
-        timeOptions.forEachIndexed { index, duration ->
+        items(timeOptions.size) { index ->
             FilterChip(
-                onClick = { onDurationSelect(duration) },
+                onClick = { onDurationSelect(timeOptions[index]) },
                 label = { Text(timeLabels[index]) },
-                selected = currentDuration == duration,
-                modifier = Modifier.padding(horizontal = 2.dp)
+                selected = currentDuration == timeOptions[index]
             )
         }
     }

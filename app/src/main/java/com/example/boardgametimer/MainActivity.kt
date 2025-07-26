@@ -102,6 +102,7 @@ fun BoardGameTimerApp(onShowOptions: (GameConfiguration) -> Unit) {
                     viewModel.startNewGame()
                 }
             },
+            onDiceClick = viewModel::throwDice,
             onUndo = viewModel::undoLastAction,
             modifier = Modifier.padding(innerPadding)
         )

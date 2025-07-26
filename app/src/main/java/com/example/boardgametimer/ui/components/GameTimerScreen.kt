@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.boardgametimer.model.GameConfiguration
 import com.example.boardgametimer.model.GameState
+import com.example.boardgametimer.model.PhaseType
 import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.min
@@ -42,6 +43,7 @@ fun GameTimerScreen(
     onPauseResume: () -> Unit,
     onShowOptions: () -> Unit,
     onEndGame: () -> Unit,
+    onDiceClick: () -> Unit = {},
     onUndo: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -97,7 +99,9 @@ fun GameTimerScreen(
                 gameConfiguration = gameConfiguration,
                 circleSize = circleSize,
                 pointerRotation = rotationAngle.value,
-                onCircleClick = onNextPlayer
+                onCircleClick = onNextPlayer,
+                onDiceClick = onDiceClick,
+                onNextPhase = onNextPlayer
             )
         }
 
@@ -175,7 +179,9 @@ fun TimerCircleWithPointer(
     gameConfiguration: GameConfiguration,
     circleSize: androidx.compose.ui.unit.Dp,
     pointerRotation: Float,
-    onCircleClick: () -> Unit
+    onCircleClick: () -> Unit,
+    onDiceClick: () -> Unit = {},
+    onNextPhase: () -> Unit = {}
 ) {
     // Use millisecond precision for smooth animation with current phase duration
     val currentPhaseDuration = gameConfiguration.getCurrentPhaseDuration(gameState.currentPhaseIndex)
@@ -235,58 +241,74 @@ fun TimerCircleWithPointer(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = formatTime(gameState.timeRemainingSeconds),
-                    fontSize = (circleSize.value / 8).sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            val currentPhase = gameConfiguration.turnPhases.getOrNull(gameState.currentPhaseIndex)
 
-                Text(
-                    text = gameConfiguration.getPlayerName(gameState.currentPlayerIndex),
-                    fontSize = (circleSize.value / 16).sp,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface
+            if (currentPhase?.phaseType == PhaseType.DICE_THROW) {
+                // Show dice display instead of timer text
+                DiceDisplay(
+                    diceType = currentPhase.diceType,
+                    diceCount = currentPhase.diceCount,
+                    diceResult = gameState.diceResult,
+                    isAnimating = gameState.isDiceAnimating,
+                    circleSize = circleSize,
+                    onDiceClick = onDiceClick,
+                    onNextPhase = onNextPhase
                 )
-
-                // Round counter title
-                Text(
-                    text = "Round ${gameState.roundCount + 1}",
-                    fontSize = (circleSize.value / 20).sp,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Medium
-                )
-
-                // Phase information
-                if (gameConfiguration.getTotalPhases() > 1) {
+            } else {
+                // Show normal timer display
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
-                        text = gameConfiguration.getCurrentPhaseName(gameState.currentPhaseIndex),
+                        text = formatTime(gameState.timeRemainingSeconds),
+                        fontSize = (circleSize.value / 8).sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Text(
+                        text = gameConfiguration.getPlayerName(gameState.currentPlayerIndex),
+                        fontSize = (circleSize.value / 16).sp,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    // Round counter title
+                    Text(
+                        text = "Round ${gameState.roundCount + 1}",
                         fontSize = (circleSize.value / 20).sp,
                         textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontWeight = FontWeight.Medium
                     )
 
-                    Text(
-                        text = "Phase ${gameState.currentPhaseIndex + 1}/${gameConfiguration.getTotalPhases()}",
-                        fontSize = (circleSize.value / 24).sp,
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                }
+                    // Phase information
+                    if (gameConfiguration.getTotalPhases() > 1) {
+                        Text(
+                            text = gameConfiguration.getCurrentPhaseName(gameState.currentPhaseIndex),
+                            fontSize = (circleSize.value / 20).sp,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
 
-                if (gameState.isPaused) {
-                    Text(
-                        text = "PAUSED",
-                        fontSize = (circleSize.value / 20).sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                        Text(
+                            text = "Phase ${gameState.currentPhaseIndex + 1}/${gameConfiguration.getTotalPhases()}",
+                            fontSize = (circleSize.value / 24).sp,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                    }
+
+                    if (gameState.isPaused) {
+                        Text(
+                            text = "PAUSED",
+                            fontSize = (circleSize.value / 20).sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
         }
