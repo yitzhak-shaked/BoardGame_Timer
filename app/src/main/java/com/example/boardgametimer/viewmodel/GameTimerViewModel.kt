@@ -488,9 +488,9 @@ class GameTimerViewModel : ViewModel() {
                 val currentTime = System.currentTimeMillis() - startTime
                 val progress = currentTime.toFloat() / animationDuration.toFloat()
 
-                // Create deceleration curve - starts fast, gets slower
-                val decelerationFactor = 1.0f - (progress * progress) // Quadratic deceleration
-                val adjustedBaseInterval = (120L + (300L * progress)).toLong() // 120ms to 420ms (more controlled)
+                // Create more aggressive deceleration curve - starts much faster, gets much slower
+                val decelerationFactor = 1.0f - (progress * progress * progress) // Cubic deceleration for more dramatic slowdown
+                val adjustedBaseInterval = (60L + (500L * progress)).toLong() // 60ms to 560ms (faster start, more significant slowdown)
 
                 // Check each die individually and update immediately when it's time to change
                 for (index in 0 until currentPhase.diceCount) {
