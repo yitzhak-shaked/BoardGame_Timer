@@ -456,9 +456,9 @@ private fun RoundConfigurationCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Use key for each phase to improve performance
+            // Use stable phase ID as key to prevent recomposition issues
             turnPhases.forEachIndexed { index, phase ->
-                key(index) {
+                key(phase.id) {
                     PhaseConfigCard(
                         phase = phase,
                         phaseIndex = index,
@@ -520,14 +520,14 @@ private fun PhaseConfigCard(
         else "${phase.durationSeconds / 60}:${String.format(Locale.getDefault(), "%02d", phase.durationSeconds % 60)}"
     }
 
-    // Memoize callbacks
-    val onNameChange = remember {
+    // Memoize callbacks with proper dependencies
+    val onNameChange = remember(phase) {
         { newName: String ->
             onPhaseChange(phase.copy(name = newName))
         }
     }
 
-    val onDurationDecrease = remember {
+    val onDurationDecrease = remember(phase) {
         {
             if (phase.durationSeconds > 0) {
                 val newDuration = if (phase.durationSeconds <= 10) 0 else phase.durationSeconds - 10
@@ -536,7 +536,7 @@ private fun PhaseConfigCard(
         }
     }
 
-    val onDurationIncrease = remember {
+    val onDurationIncrease = remember(phase) {
         {
             if (phase.durationSeconds < 600) {
                 val newDuration = if (phase.durationSeconds == 0) 10 else phase.durationSeconds + 10
@@ -701,7 +701,7 @@ private fun PhaseConfigCard(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(DiceType.values()) { diceType ->
+                    items(DiceType.entries.toTypedArray()) { diceType ->
                         FilterChip(
                             onClick = { onPhaseChange(phase.copy(diceType = diceType)) },
                             label = { Text(diceType.displayName) },

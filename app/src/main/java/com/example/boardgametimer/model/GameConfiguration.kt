@@ -1,5 +1,6 @@
 package com.example.boardgametimer.model
 
+import java.util.UUID
 enum class PhaseType {
     NORMAL,
     DICE_THROW
@@ -21,8 +22,18 @@ data class TurnPhase(
     val phaseType: PhaseType = PhaseType.NORMAL,
     val diceCount: Int = 1,
     val diceType: DiceType = DiceType.D6,
-    val waitForPress: Boolean = false
-)
+    val waitForPress: Boolean = false,
+    val id: String = UUID.randomUUID().toString()
+) {
+    // Ensure backward compatibility - if id is empty or null, generate a new one
+    fun withValidId(): TurnPhase {
+        return if (id.isBlank()) {
+            copy(id = UUID.randomUUID().toString())
+        } else {
+            this
+        }
+    }
+}
 
 data class GameConfiguration(
     val numberOfPlayers: Int = 4,

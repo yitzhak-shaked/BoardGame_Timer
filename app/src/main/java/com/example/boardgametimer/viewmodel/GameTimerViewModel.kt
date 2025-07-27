@@ -86,15 +86,22 @@ class GameTimerViewModel : ViewModel() {
             if (json != null) {
                 try {
                     val lastConfig = gson.fromJson(json, GameConfiguration::class.java)
-                    gameConfiguration = lastConfig
-                    // Update game state with the loaded configuration
+                    // Ensure all phases have valid IDs for backward compatibility
+                    val configWithValidIds = lastConfig.copy(
+                        turnPhases = lastConfig.turnPhases.map { it.withValidId() }
+                    )
+                    gameConfiguration = configWithValidIds
+                    // Always update game state with the loaded configuration when app starts
                     if (!gameState.isGameRunning) {
-                        val playerTurnTimes = List(lastConfig.numberOfPlayers) { mutableListOf<Int>() }
+                        val playerTurnTimes = List(configWithValidIds.numberOfPlayers) { mutableListOf<Int>() }
+                        val firstPhaseDuration = configWithValidIds.getCurrentPhaseDuration(0)
                         gameState = GameState(
-                            timeRemainingSeconds = lastConfig.turnDurationSeconds,
-                            timeRemainingMillis = lastConfig.turnDurationSeconds * 1000L,
+                            currentPlayerIndex = 0,
+                            currentPhaseIndex = 0,
+                            timeRemainingSeconds = firstPhaseDuration,
+                            timeRemainingMillis = firstPhaseDuration * 1000L,
                             playerTurnTimes = playerTurnTimes,
-                            isPaused = false,
+                            isPaused = true, // Start paused by default
                             isGameRunning = false
                         )
                     }
@@ -401,7 +408,15 @@ class GameTimerViewModel : ViewModel() {
             val json = prefs.getString("saved_configurations", "[]")
             val type = object : TypeToken<List<SavedConfiguration>>() {}.type
             try {
-                savedConfigurations = gson.fromJson(json, type) ?: emptyList()
+                val loadedConfigurations = gson.fromJson<List<SavedConfiguration>>(json, type) ?: emptyList()
+                // Ensure all configurations have valid IDs for backward compatibility
+                savedConfigurations = loadedConfigurations.map { savedConfig ->
+                    savedConfig.copy(
+                        configuration = savedConfig.configuration.copy(
+                            turnPhases = savedConfig.configuration.turnPhases.map { it.withValidId() }
+                        )
+                    )
+                }
             } catch (e: Exception) {
                 savedConfigurations = emptyList()
             }
